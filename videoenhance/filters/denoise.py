@@ -76,14 +76,19 @@ class TemporalDenoiseFilter:
         if not HAS_VAPOURSYNTH or core is None:
             raise ImportError("VapourSynth is required for denoising")
         
-        # Use built-in TemporalSoften
-        threshold = int(self.strength * 4)
-        denoised = core.std.TemporalSoften(
+        # Use built-in AverageFrames for temporal denoising
+        # Create weights array centered on current frame
+        # Strength controls the emphasis on current frame vs neighbors
+        # Higher strength = more weight on current frame = less denoising
+        center_weight = max(1, int(4 - self.strength))
+        neighbor_weight = 1
+        weights = [neighbor_weight] * self.radius + [center_weight] + [neighbor_weight] * self.radius
+        
+        denoised = core.std.AverageFrames(
             clip,
-            radius=self.radius,
-            luma_threshold=threshold,
-            chroma_threshold=threshold,
-            scenechange=32
+            weights=weights,
+            scale=sum(weights),
+            scenechange=True
         )
         return denoised
 
