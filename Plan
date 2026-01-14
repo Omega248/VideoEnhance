@@ -1,0 +1,26 @@
+Design a complete application architecture that automatically ingests an SD interlaced video file (example: Star Trek Voyager), processes it through a defined enhancement pipeline, and outputs a cleaned progressive file. The system must fully automate detection, processing, and export without user intervention.
+
+Pipeline requirements:
+1. Automatic format detection: container, codec, resolution, interlaced/progressive.
+2. Deinterlacing: use QTGMC Fast preset via VapourSynth or equivalent. Mandatory first step.
+3. Temporal-only denoise with tunable strength. No spatial blur and no detail smearing.
+4. Mild sharpening: low-radius, low-strength, no halos.
+5. Deflicker: stabilize luminance fluctuations from tape sources.
+6. Global color normalization: white balance, gamma, contrast. No creative grading.
+7. Keep native SD resolution. Do not upscale.
+8. Optional compression artifact cleanup that preserves edges.
+
+Application requirements:
+1. Build a modular pipeline with discrete processing stages.
+2. Provide a queue system to batch multiple episodes.
+3. Include automatic error handling for invalid or corrupted files.
+4. Provide both CLI and GUI entry points.
+5. Implement GPU acceleration when available (CUDA or OpenCL).
+6. Export progress logs and final output metrics.
+
+Implementation requirements:
+1. Provide code structure for Python + VapourSynth + FFmpeg.
+2. Provide wrapper functions for each processing stage.
+3. Implement automatic file watching: detect new video in a folder and process it.
+4. Ensure final output is written as H.265 or AV1 with correct metadata.
+5. No interpolation, no AI upscaling, no hallucination models.
