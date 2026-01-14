@@ -20,7 +20,7 @@ except ImportError:
     HAS_VAPOURSYNTH = False
 
 from pathlib import Path
-from typing import Dict, Optional, List, Any
+from typing import Dict, Optional, List, Any, Callable
 import logging
 from dataclasses import dataclass, field
 import subprocess
@@ -48,6 +48,9 @@ logger = logging.getLogger(__name__)
 
 # Constants for video export
 FFMPEG_BUFFER_SIZE = 10**8  # 100MB buffer for FFmpeg stdin
+EXPORT_PROGRESS_START = 80  # Progress percentage when export starts
+EXPORT_PROGRESS_RANGE = 20  # Progress range for export (80-100%)
+PROGRESS_UPDATE_INTERVAL = 100  # Number of frames between progress updates
 
 
 @dataclass
@@ -105,7 +108,7 @@ class Pipeline:
         self.detector = VideoDetector()
 
     def process(self, input_path: str, output_path: str,
-                progress_callback: Optional[callable] = None) -> Dict[str, any]:
+                progress_callback: Optional[Callable[[str, float], None]] = None) -> Dict[str, Any]:
         """
         Process a video file through the enhancement pipeline.
 
@@ -156,9 +159,9 @@ class Pipeline:
 
         # Step 4: Export video
         if progress_callback:
-            progress_callback("Exporting video", 80)
+            progress_callback("Exporting video", EXPORT_PROGRESS_START)
         
-        self._export_video(clip, str(output_path), properties)
+        self._export_video(clip, str(output_path), properties, progress_callback)
 
         if progress_callback:
             progress_callback("Complete", 100)
@@ -195,7 +198,7 @@ class Pipeline:
 
         return clip
 
-    def _apply_pipeline(self, clip: Any, properties: Dict[str, any]) -> Any:
+    def _apply_pipeline(self, clip: Any, properties: Dict[str, Any]) -> Any:
         """
         Apply the complete enhancement pipeline.
 
@@ -264,7 +267,8 @@ class Pipeline:
         return clip
 
     def _export_video(self, clip: Any, output_path: str, 
-                     properties: Dict[str, any]) -> None:
+                     properties: Dict[str, Any],
+                     progress_callback: Optional[Callable[[str, float], None]] = None) -> None:
         """
         Export video using FFmpeg via subprocess.
 
@@ -272,6 +276,7 @@ class Pipeline:
             clip: VapourSynth video node
             output_path: Path to output file
             properties: Video properties
+            progress_callback: Optional callback for progress updates (takes message: str, percent: float)
         """
         if not HAS_VAPOURSYNTH or clip is None:
             raise ImportError("VapourSynth is required for video export")
@@ -290,6 +295,10 @@ class Pipeline:
         fps = fps_num / fps_den
         width = clip.width
         height = clip.height
+        
+        # Validate that we have frames to export
+        if num_frames == 0:
+            raise ValueError("Cannot export video with 0 frames")
         
         logger.info(f"Exporting {num_frames} frames at {width}x{height}, {fps:.2f} fps")
         
@@ -324,9 +333,17 @@ class Pipeline:
             
             # Process and write each frame
             for frame_num in range(num_frames):
-                if frame_num % 100 == 0 and frame_num > 0:
+                # Update progress every PROGRESS_UPDATE_INTERVAL frames (includes frame 0)
+                should_update_progress = (frame_num % PROGRESS_UPDATE_INTERVAL == 0)
+                
+                if should_update_progress:
                     percent = (frame_num / num_frames) * 100
                     logger.info(f"Encoding progress: {frame_num}/{num_frames} frames ({percent:.1f}%)")
+                    
+                    if progress_callback:
+                        # Map frame progress to export progress range (80-100%)
+                        overall_percent = EXPORT_PROGRESS_START + (frame_num / num_frames) * EXPORT_PROGRESS_RANGE
+                        progress_callback(f"Exporting video ({frame_num}/{num_frames} frames)", overall_percent)
                 
                 # Get frame from VapourSynth
                 frame = clip.get_frame(frame_num)
