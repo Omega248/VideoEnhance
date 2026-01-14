@@ -70,6 +70,28 @@ class TestVideoExport(unittest.TestCase):
         finally:
             pipeline_module.HAS_VAPOURSYNTH = original_has_vs
 
+    def test_export_video_accepts_progress_callback(self):
+        """Test that export accepts progress_callback parameter."""
+        import videoenhance.core.pipeline as pipeline_module
+        original_has_vs = pipeline_module.HAS_VAPOURSYNTH
+        
+        try:
+            # Disable VapourSynth to avoid actual processing
+            pipeline_module.HAS_VAPOURSYNTH = False
+            
+            config = PipelineConfig()
+            pipeline = Pipeline(config=config)
+            
+            # Create a mock progress callback
+            progress_callback = Mock()
+            
+            # Should raise ImportError but accept the callback parameter
+            with self.assertRaises(ImportError):
+                pipeline._export_video(None, '/test/output.mp4', {}, progress_callback)
+                
+        finally:
+            pipeline_module.HAS_VAPOURSYNTH = original_has_vs
+
 
 if __name__ == '__main__':
     unittest.main()
