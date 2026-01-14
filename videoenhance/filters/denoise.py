@@ -78,8 +78,11 @@ class TemporalDenoiseFilter:
         
         # Use built-in AverageFrames for temporal denoising
         # Create weights array centered on current frame
-        # Strength controls the denoising amount
-        # Higher strength = less weight on current frame = more denoising
+        # Strength controls the denoising amount (0.0-3.0):
+        #   - strength=0.0: center_weight=4, weights=[1,1,4,1,1] → 50% center (minimal denoising)
+        #   - strength=1.0: center_weight=3, weights=[1,1,3,1,1] → 43% center (moderate denoising)
+        #   - strength=3.0: center_weight=1, weights=[1,1,1,1,1] → 20% center (strong denoising)
+        # Higher strength = less weight on current frame = more temporal smoothing
         center_weight = max(1, int(4 - self.strength))
         neighbor_weight = 1
         weights = [neighbor_weight] * self.radius + [center_weight] + [neighbor_weight] * self.radius
