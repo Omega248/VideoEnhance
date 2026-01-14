@@ -20,7 +20,7 @@ except ImportError:
     HAS_VAPOURSYNTH = False
 
 from pathlib import Path
-from typing import Dict, Optional, List, Any
+from typing import Dict, Optional, List, Any, Callable
 import logging
 from dataclasses import dataclass, field
 import subprocess
@@ -107,7 +107,7 @@ class Pipeline:
         self.detector = VideoDetector()
 
     def process(self, input_path: str, output_path: str,
-                progress_callback: Optional[callable] = None) -> Dict[str, any]:
+                progress_callback: Optional[Callable[[str, float], None]] = None) -> Dict[str, Any]:
         """
         Process a video file through the enhancement pipeline.
 
@@ -197,7 +197,7 @@ class Pipeline:
 
         return clip
 
-    def _apply_pipeline(self, clip: Any, properties: Dict[str, any]) -> Any:
+    def _apply_pipeline(self, clip: Any, properties: Dict[str, Any]) -> Any:
         """
         Apply the complete enhancement pipeline.
 
@@ -266,8 +266,8 @@ class Pipeline:
         return clip
 
     def _export_video(self, clip: Any, output_path: str, 
-                     properties: Dict[str, any],
-                     progress_callback: Optional[callable] = None) -> None:
+                     properties: Dict[str, Any],
+                     progress_callback: Optional[Callable[[str, float], None]] = None) -> None:
         """
         Export video using FFmpeg via subprocess.
 
