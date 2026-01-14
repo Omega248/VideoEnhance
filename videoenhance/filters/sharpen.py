@@ -81,12 +81,11 @@ class SharpenFilter:
             matrix=[1, 2, 1, 2, 4, 2, 1, 2, 1]
         )
 
-        # Create unsharp mask
+        # Create unsharp mask with strength control
         # Formula: original + strength * (original - blurred)
-        diff = core.std.MakeDiff(clip, blurred)
-        
-        # Apply limited strength
-        sharpened = core.std.MergeDiff(clip, diff, weight=self.strength)
+        # Using std.Expr for weighted sharpening since MergeDiff doesn't support weight parameter
+        expr = f'x y - {self.strength} * x +'
+        sharpened = core.std.Expr([clip, blurred], [expr])
         
         return sharpened
 
