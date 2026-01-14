@@ -4,13 +4,19 @@ Temporal-only denoising filter.
 No spatial blur, no detail smearing - temporal processing only.
 """
 
-import vapoursynth as vs
-from typing import Optional
+try:
+    import vapoursynth as vs
+    core = vs.core
+    HAS_VAPOURSYNTH = True
+except ImportError:
+    vs = None
+    core = None
+    HAS_VAPOURSYNTH = False
+
+from typing import Optional, Any
 import logging
 
 logger = logging.getLogger(__name__)
-
-core = vs.core
 
 
 class TemporalDenoiseFilter:
@@ -27,7 +33,7 @@ class TemporalDenoiseFilter:
         self.strength = max(0.0, min(3.0, strength))
         self.radius = max(1, min(3, radius))
 
-    def apply(self, clip: vs.VideoNode) -> vs.VideoNode:
+    def apply(self, clip: Any) -> Any:
         """
         Apply temporal denoising.
 
@@ -54,7 +60,7 @@ class TemporalDenoiseFilter:
             # Fallback to TemporalSoften
             return self._fallback_denoise(clip)
 
-    def _fallback_denoise(self, clip: vs.VideoNode) -> vs.VideoNode:
+    def _fallback_denoise(self, clip: Any) -> Any:
         """
         Fallback temporal denoising using built-in filters.
 
@@ -76,7 +82,7 @@ class TemporalDenoiseFilter:
         return denoised
 
 
-def temporal_denoise(clip: vs.VideoNode, strength: float = 1.0, radius: int = 2) -> vs.VideoNode:
+def temporal_denoise(clip: Any, strength: float = 1.0, radius: int = 2) -> Any:
     """
     Convenience function for temporal denoising.
 

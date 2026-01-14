@@ -5,12 +5,19 @@ Automatic white balance, gamma, and contrast adjustment.
 No creative grading - purely corrective.
 """
 
-import vapoursynth as vs
+try:
+    import vapoursynth as vs
+    core = vs.core
+    HAS_VAPOURSYNTH = True
+except ImportError:
+    vs = None
+    core = None
+    HAS_VAPOURSYNTH = False
+
+from typing import Any
 import logging
 
 logger = logging.getLogger(__name__)
-
-core = vs.core
 
 
 class ColorNormalizeFilter:
@@ -30,7 +37,7 @@ class ColorNormalizeFilter:
         self.auto_contrast = auto_contrast
         self.gamma = gamma
 
-    def apply(self, clip: vs.VideoNode) -> vs.VideoNode:
+    def apply(self, clip: Any) -> Any:
         """
         Apply color normalization.
 
@@ -59,7 +66,7 @@ class ColorNormalizeFilter:
 
         return result
 
-    def _apply_gamma(self, clip: vs.VideoNode) -> vs.VideoNode:
+    def _apply_gamma(self, clip: Any) -> Any:
         """
         Apply gamma correction.
 
@@ -73,7 +80,7 @@ class ColorNormalizeFilter:
         expr = f"x 255 / {self.gamma} pow 255 *"
         return core.std.Expr(clip, expr=[expr, expr, expr])
 
-    def _auto_contrast(self, clip: vs.VideoNode) -> vs.VideoNode:
+    def _auto_contrast(self, clip: Any) -> Any:
         """
         Apply automatic contrast adjustment.
 
@@ -94,7 +101,7 @@ class ColorNormalizeFilter:
             planes=[0, 1, 2]
         )
 
-    def _auto_white_balance(self, clip: vs.VideoNode) -> vs.VideoNode:
+    def _auto_white_balance(self, clip: Any) -> Any:
         """
         Apply automatic white balance.
 
@@ -115,8 +122,8 @@ class ColorNormalizeFilter:
         return clip
 
 
-def color_normalize(clip: vs.VideoNode, auto_white_balance: bool = True,
-                   auto_contrast: bool = True, gamma: float = 1.0) -> vs.VideoNode:
+def color_normalize(clip: Any, auto_white_balance: bool = True,
+                   auto_contrast: bool = True, gamma: float = 1.0) -> Any:
     """
     Convenience function for color normalization.
 

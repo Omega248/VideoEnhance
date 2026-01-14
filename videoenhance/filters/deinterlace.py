@@ -4,13 +4,19 @@ VapourSynth deinterlacing filter using QTGMC.
 Mandatory first step in the enhancement pipeline.
 """
 
-import vapoursynth as vs
-from typing import Optional
+try:
+    import vapoursynth as vs
+    core = vs.core
+    HAS_VAPOURSYNTH = True
+except ImportError:
+    vs = None
+    core = None
+    HAS_VAPOURSYNTH = False
+
+from typing import Optional, Any
 import logging
 
 logger = logging.getLogger(__name__)
-
-core = vs.core
 
 
 class DeinterlaceFilter:
@@ -27,7 +33,7 @@ class DeinterlaceFilter:
         self.preset = preset
         self.field_order = field_order
 
-    def apply(self, clip: vs.VideoNode) -> vs.VideoNode:
+    def apply(self, clip: Any) -> Any:
         """
         Apply QTGMC deinterlacing.
 
@@ -64,7 +70,7 @@ class DeinterlaceFilter:
             # Fallback to simple bob deinterlacing
             return self._fallback_deinterlace(clip)
 
-    def _fallback_deinterlace(self, clip: vs.VideoNode) -> vs.VideoNode:
+    def _fallback_deinterlace(self, clip: Any) -> Any:
         """
         Fallback deinterlacing using VapourSynth built-in filters.
 
@@ -83,7 +89,7 @@ class DeinterlaceFilter:
         return clip
 
 
-def deinterlace(clip: vs.VideoNode, preset: str = "Fast", field_order: Optional[str] = None) -> vs.VideoNode:
+def deinterlace(clip: Any, preset: str = "Fast", field_order: Optional[str] = None) -> Any:
     """
     Convenience function for deinterlacing.
 

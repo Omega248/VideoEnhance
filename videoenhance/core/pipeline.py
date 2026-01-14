@@ -4,24 +4,38 @@ Main enhancement pipeline.
 Orchestrates the complete video enhancement workflow.
 """
 
-import vapoursynth as vs
+try:
+    import vapoursynth as vs
+    from typing import TYPE_CHECKING
+    if TYPE_CHECKING:
+        VideoNode = vs.VideoNode
+    else:
+        VideoNode = "vs.VideoNode"
+    core = vs.core
+    HAS_VAPOURSYNTH = True
+except ImportError:
+    vs = None
+    VideoNode = None
+    core = None
+    HAS_VAPOURSYNTH = False
+
 from pathlib import Path
-from typing import Dict, Optional, List
+from typing import Dict, Optional, List, Any
 import logging
-import ffmpeg
 from dataclasses import dataclass, field
 
 from .detector import VideoDetector
-from ..filters.deinterlace import DeinterlaceFilter
-from ..filters.denoise import TemporalDenoiseFilter
-from ..filters.sharpen import SharpenFilter
-from ..filters.deflicker import DeflickerFilter
-from ..filters.color import ColorNormalizeFilter
-from ..filters.artifacts import ArtifactCleanupFilter
+
+# Import filters only if VapourSynth is available
+if HAS_VAPOURSYNTH:
+    from ..filters.deinterlace import DeinterlaceFilter
+    from ..filters.denoise import TemporalDenoiseFilter
+    from ..filters.sharpen import SharpenFilter
+    from ..filters.deflicker import DeflickerFilter
+    from ..filters.color import ColorNormalizeFilter
+    from ..filters.artifacts import ArtifactCleanupFilter
 
 logger = logging.getLogger(__name__)
-
-core = vs.core
 
 
 @dataclass
@@ -72,6 +86,9 @@ class Pipeline:
         Args:
             config: Pipeline configuration (uses defaults if not provided)
         """
+        if not HAS_VAPOURSYNTH:
+            logger.warning("VapourSynth not available - pipeline will not be functional")
+        
         self.config = config or PipelineConfig()
         self.detector = VideoDetector()
 
@@ -132,7 +149,7 @@ class Pipeline:
             'success': True
         }
 
-    def _load_video(self, video_path: str) -> vs.VideoNode:
+    def _load_video(self, video_path: str) -> Any:
         """
         Load video into VapourSynth.
 
@@ -154,7 +171,7 @@ class Pipeline:
 
         return clip
 
-    def _apply_pipeline(self, clip: vs.VideoNode, properties: Dict[str, any]) -> vs.VideoNode:
+    def _apply_pipeline(self, clip: Any, properties: Dict[str, any]) -> Any:
         """
         Apply the complete enhancement pipeline.
 
@@ -219,7 +236,7 @@ class Pipeline:
 
         return clip
 
-    def _export_video(self, clip: vs.VideoNode, output_path: str, 
+    def _export_video(self, clip: Any, output_path: str, 
                      properties: Dict[str, any]) -> None:
         """
         Export video using FFmpeg.

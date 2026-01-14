@@ -4,12 +4,19 @@ Compression artifact cleanup filter.
 Preserves edges while cleaning compression artifacts.
 """
 
-import vapoursynth as vs
+try:
+    import vapoursynth as vs
+    core = vs.core
+    HAS_VAPOURSYNTH = True
+except ImportError:
+    vs = None
+    core = None
+    HAS_VAPOURSYNTH = False
+
+from typing import Any
 import logging
 
 logger = logging.getLogger(__name__)
-
-core = vs.core
 
 
 class ArtifactCleanupFilter:
@@ -24,7 +31,7 @@ class ArtifactCleanupFilter:
         """
         self.strength = max(0.0, min(1.0, strength))
 
-    def apply(self, clip: vs.VideoNode) -> vs.VideoNode:
+    def apply(self, clip: Any) -> Any:
         """
         Apply artifact cleanup.
 
@@ -53,7 +60,7 @@ class ArtifactCleanupFilter:
             logger.warning("f3kdb not available, using basic deblocking")
             return self._fallback_cleanup(clip)
 
-    def _fallback_cleanup(self, clip: vs.VideoNode) -> vs.VideoNode:
+    def _fallback_cleanup(self, clip: Any) -> Any:
         """
         Fallback artifact cleanup using basic filters.
 
@@ -76,7 +83,7 @@ class ArtifactCleanupFilter:
         return result
 
 
-def cleanup_artifacts(clip: vs.VideoNode, strength: float = 0.5) -> vs.VideoNode:
+def cleanup_artifacts(clip: Any, strength: float = 0.5) -> Any:
     """
     Convenience function for artifact cleanup.
 

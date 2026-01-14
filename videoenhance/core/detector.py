@@ -4,7 +4,13 @@ Video format detection module.
 Automatically detects container, codec, resolution, and interlaced/progressive status.
 """
 
-import av
+try:
+    import av
+    HAS_AV = True
+except ImportError:
+    av = None
+    HAS_AV = False
+
 from pathlib import Path
 from typing import Dict, Optional
 import logging
@@ -38,6 +44,9 @@ class VideoDetector:
             FileNotFoundError: If video file doesn't exist
             ValueError: If video format cannot be detected
         """
+        if not HAS_AV:
+            raise ImportError("PyAV library is required for video detection. Install with: pip install av")
+        
         video_path = Path(video_path)
         if not video_path.exists():
             raise FileNotFoundError(f"Video file not found: {video_path}")
@@ -103,6 +112,10 @@ class VideoDetector:
         Returns:
             True if valid video file, False otherwise
         """
+        if not HAS_AV:
+            logger.warning("PyAV not available, cannot validate file")
+            return False
+            
         try:
             container = av.open(str(video_path))
             has_video = len(container.streams.video) > 0

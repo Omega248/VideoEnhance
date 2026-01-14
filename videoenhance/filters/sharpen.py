@@ -4,12 +4,19 @@ Mild sharpening filter.
 Low-radius, low-strength, no halos.
 """
 
-import vapoursynth as vs
+try:
+    import vapoursynth as vs
+    core = vs.core
+    HAS_VAPOURSYNTH = True
+except ImportError:
+    vs = None
+    core = None
+    HAS_VAPOURSYNTH = False
+
+from typing import Any
 import logging
 
 logger = logging.getLogger(__name__)
-
-core = vs.core
 
 
 class SharpenFilter:
@@ -26,7 +33,7 @@ class SharpenFilter:
         self.strength = max(0.0, min(1.0, strength))
         self.radius = max(1, min(2, radius))
 
-    def apply(self, clip: vs.VideoNode) -> vs.VideoNode:
+    def apply(self, clip: Any) -> Any:
         """
         Apply mild sharpening.
 
@@ -52,7 +59,7 @@ class SharpenFilter:
             logger.warning("LSFmod not available, using unsharp mask")
             return self._fallback_sharpen(clip)
 
-    def _fallback_sharpen(self, clip: vs.VideoNode) -> vs.VideoNode:
+    def _fallback_sharpen(self, clip: Any) -> Any:
         """
         Fallback sharpening using unsharp mask.
 
@@ -78,7 +85,7 @@ class SharpenFilter:
         return sharpened
 
 
-def sharpen(clip: vs.VideoNode, strength: float = 0.3, radius: int = 1) -> vs.VideoNode:
+def sharpen(clip: Any, strength: float = 0.3, radius: int = 1) -> Any:
     """
     Convenience function for sharpening.
 

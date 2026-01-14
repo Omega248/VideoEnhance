@@ -4,12 +4,19 @@ Deflicker filter for stabilizing luminance fluctuations.
 Designed for tape sources with temporal luminance variations.
 """
 
-import vapoursynth as vs
+try:
+    import vapoursynth as vs
+    core = vs.core
+    HAS_VAPOURSYNTH = True
+except ImportError:
+    vs = None
+    core = None
+    HAS_VAPOURSYNTH = False
+
+from typing import Any
 import logging
 
 logger = logging.getLogger(__name__)
-
-core = vs.core
 
 
 class DeflickerFilter:
@@ -26,7 +33,7 @@ class DeflickerFilter:
         self.strength = max(0.0, min(1.0, strength))
         self.radius = max(1, min(5, radius))
 
-    def apply(self, clip: vs.VideoNode) -> vs.VideoNode:
+    def apply(self, clip: Any) -> Any:
         """
         Apply deflicker filter.
 
@@ -46,7 +53,7 @@ class DeflickerFilter:
         
         return result
 
-    def _temporal_luma_stabilize(self, clip: vs.VideoNode) -> vs.VideoNode:
+    def _temporal_luma_stabilize(self, clip: Any) -> Any:
         """
         Stabilize luminance using temporal averaging.
 
@@ -79,7 +86,7 @@ class DeflickerFilter:
         return adjusted
 
 
-def deflicker(clip: vs.VideoNode, strength: float = 0.5, radius: int = 3) -> vs.VideoNode:
+def deflicker(clip: Any, strength: float = 0.5, radius: int = 3) -> Any:
     """
     Convenience function for deflickering.
 
