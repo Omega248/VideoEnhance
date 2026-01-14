@@ -43,6 +43,9 @@ class DeflickerFilter:
         Returns:
             Deflickered video node
         """
+        if not HAS_VAPOURSYNTH or core is None or vs is None:
+            raise ImportError("VapourSynth is required for deflicker")
+        
         logger.info(f"Applying deflicker: strength={self.strength}, radius={self.radius}")
 
         # Calculate temporal average of luma
@@ -63,6 +66,9 @@ class DeflickerFilter:
         Returns:
             Luminance-stabilized video node
         """
+        if not HAS_VAPOURSYNTH or core is None or vs is None:
+            raise ImportError("VapourSynth is required for deflicker")
+        
         # Extract luma plane
         luma = core.std.ShufflePlanes(clip, planes=0, colorfamily=vs.GRAY)
         

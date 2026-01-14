@@ -43,6 +43,9 @@ class DeinterlaceFilter:
         Returns:
             Deinterlaced video node
         """
+        if not HAS_VAPOURSYNTH or core is None:
+            raise ImportError("VapourSynth is required for deinterlacing")
+        
         try:
             # Import QTGMC (requires havsfunc or similar)
             from havsfunc import QTGMC
@@ -80,6 +83,9 @@ class DeinterlaceFilter:
         Returns:
             Deinterlaced video node using simple bob method
         """
+        if not HAS_VAPOURSYNTH or core is None:
+            raise ImportError("VapourSynth is required for deinterlacing")
+        
         # Separate fields and double framerate
         clip = core.std.SeparateFields(clip, tff=self.field_order != 'bff')
         

@@ -76,6 +76,9 @@ class ColorNormalizeFilter:
         Returns:
             Gamma-corrected video node
         """
+        if not HAS_VAPOURSYNTH or core is None:
+            raise ImportError("VapourSynth is required for color normalization")
+        
         # Normalize to 0-1, apply gamma, scale back
         expr = f"x 255 / {self.gamma} pow 255 *"
         return core.std.Expr(clip, expr=[expr, expr, expr])
@@ -90,6 +93,9 @@ class ColorNormalizeFilter:
         Returns:
             Contrast-adjusted video node
         """
+        if not HAS_VAPOURSYNTH or core is None:
+            raise ImportError("VapourSynth is required for color normalization")
+        
         # Use built-in levels adjustment
         # This is simplified - production would analyze frames for optimal levels
         return core.std.Levels(

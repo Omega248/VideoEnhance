@@ -43,6 +43,9 @@ class TemporalDenoiseFilter:
         Returns:
             Denoised video node
         """
+        if not HAS_VAPOURSYNTH or core is None:
+            raise ImportError("VapourSynth is required for denoising")
+        
         logger.info(f"Applying temporal denoise: strength={self.strength}, radius={self.radius}")
 
         try:
@@ -70,6 +73,9 @@ class TemporalDenoiseFilter:
         Returns:
             Denoised video node
         """
+        if not HAS_VAPOURSYNTH or core is None:
+            raise ImportError("VapourSynth is required for denoising")
+        
         # Use built-in TemporalSoften
         threshold = int(self.strength * 4)
         denoised = core.std.TemporalSoften(

@@ -43,6 +43,9 @@ class SharpenFilter:
         Returns:
             Sharpened video node
         """
+        if not HAS_VAPOURSYNTH or core is None:
+            raise ImportError("VapourSynth is required for sharpening")
+        
         logger.info(f"Applying sharpening: strength={self.strength}, radius={self.radius}")
 
         try:
@@ -69,6 +72,9 @@ class SharpenFilter:
         Returns:
             Sharpened video node
         """
+        if not HAS_VAPOURSYNTH or core is None:
+            raise ImportError("VapourSynth is required for sharpening")
+        
         # Create blurred version
         blurred = core.std.Convolution(
             clip,

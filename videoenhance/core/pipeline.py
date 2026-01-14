@@ -108,7 +108,14 @@ class Pipeline:
         Raises:
             FileNotFoundError: If input file doesn't exist
             ValueError: If video format cannot be processed
+            ImportError: If VapourSynth is not available
         """
+        if not HAS_VAPOURSYNTH:
+            raise ImportError(
+                "VapourSynth is required for video processing. "
+                "Please install VapourSynth from http://www.vapoursynth.com/"
+            )
+        
         input_path = Path(input_path)
         output_path = Path(output_path)
 
@@ -159,6 +166,9 @@ class Pipeline:
         Returns:
             VapourSynth video node
         """
+        if not HAS_VAPOURSYNTH or core is None:
+            raise ImportError("VapourSynth is required for video loading")
+        
         # Use ffms2 or lsmas for loading
         try:
             clip = core.ffms2.Source(video_path)
@@ -182,6 +192,9 @@ class Pipeline:
         Returns:
             Enhanced video node
         """
+        if not HAS_VAPOURSYNTH:
+            raise ImportError("VapourSynth is required for pipeline processing")
+        
         # Step 1: Deinterlacing (mandatory for interlaced content)
         if properties.get('interlaced', False):
             logger.info("Applying deinterlacing (interlaced content detected)")
@@ -246,6 +259,9 @@ class Pipeline:
             output_path: Path to output file
             properties: Video properties
         """
+        if not HAS_VAPOURSYNTH or clip is None:
+            raise ImportError("VapourSynth is required for video export")
+        
         logger.info(f"Exporting to {output_path} using {self.config.output_codec}")
 
         # Set up output pipe from VapourSynth

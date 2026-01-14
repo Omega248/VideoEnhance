@@ -41,6 +41,9 @@ class ArtifactCleanupFilter:
         Returns:
             Cleaned video node
         """
+        if not HAS_VAPOURSYNTH or core is None:
+            raise ImportError("VapourSynth is required for artifact cleanup")
+        
         logger.info(f"Applying artifact cleanup: strength={self.strength}")
 
         try:
@@ -70,6 +73,9 @@ class ArtifactCleanupFilter:
         Returns:
             Cleaned video node
         """
+        if not HAS_VAPOURSYNTH or core is None:
+            raise ImportError("VapourSynth is required for artifact cleanup")
+        
         # Apply a very mild blur to reduce blocking
         # Use a small kernel to preserve edges
         cleaned = core.std.Convolution(
