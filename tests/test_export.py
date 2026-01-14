@@ -64,7 +64,7 @@ class TestVideoExport(unittest.TestCase):
             
             # Should raise ImportError
             with self.assertRaises(ImportError) as context:
-                pipeline._export_video(None, '/test/output.mp4', {})
+                pipeline._export_video(None, '/test/output.mp4', {}, None)
             
             self.assertIn('VapourSynth is required', str(context.exception))
         finally:

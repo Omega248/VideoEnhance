@@ -158,7 +158,7 @@ class Pipeline:
         if progress_callback:
             progress_callback("Exporting video", 80)
         
-        self._export_video(clip, str(output_path), properties)
+        self._export_video(clip, str(output_path), properties, progress_callback)
 
         if progress_callback:
             progress_callback("Complete", 100)
@@ -264,7 +264,8 @@ class Pipeline:
         return clip
 
     def _export_video(self, clip: Any, output_path: str, 
-                     properties: Dict[str, any]) -> None:
+                     properties: Dict[str, any],
+                     progress_callback: Optional[callable] = None) -> None:
         """
         Export video using FFmpeg via subprocess.
 
@@ -272,6 +273,7 @@ class Pipeline:
             clip: VapourSynth video node
             output_path: Path to output file
             properties: Video properties
+            progress_callback: Optional callback for progress updates
         """
         if not HAS_VAPOURSYNTH or clip is None:
             raise ImportError("VapourSynth is required for video export")
@@ -327,6 +329,10 @@ class Pipeline:
                 if frame_num % 100 == 0 and frame_num > 0:
                     percent = (frame_num / num_frames) * 100
                     logger.info(f"Encoding progress: {frame_num}/{num_frames} frames ({percent:.1f}%)")
+                    # Update progress callback (map frame progress to 80-100% range)
+                    if progress_callback:
+                        overall_percent = 80 + (frame_num / num_frames) * 20
+                        progress_callback(f"Exporting video ({frame_num}/{num_frames} frames)", overall_percent)
                 
                 # Get frame from VapourSynth
                 frame = clip.get_frame(frame_num)
