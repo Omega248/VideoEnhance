@@ -135,10 +135,15 @@ class TestVideoExport(unittest.TestCase):
         config = PipelineConfig()
         pipeline = Pipeline(config=config)
         
+        # Call export - we're only interested in verifying Popen arguments
+        # The export may fail due to mocking limitations, but Popen will be called first
         try:
             pipeline._export_video(mock_clip, '/tmp/test_output.mp4', {}, None)
-        except Exception:
-            # We might get other errors, but we're only checking Popen call
+        except (AttributeError, TypeError, RuntimeError) as e:
+            # Expected exceptions due to incomplete mocking
+            # AttributeError: mock objects missing expected attributes
+            # TypeError: type mismatches in mock setup  
+            # RuntimeError: FFmpeg-related errors from incomplete mock
             pass
         
         # Verify that Popen was called with DEVNULL for stdout and stderr

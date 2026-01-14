@@ -473,7 +473,8 @@ class Pipeline:
                 raise RuntimeError(f"Video export failed with FFmpeg return code {return_code}")
             
             # Log final progress update
-            logger.info(f"Encoding progress: {num_frames}/{num_frames} frames (100.0%)")
+            final_percent = 100.0
+            logger.info(f"Encoding progress: {num_frames}/{num_frames} frames ({final_percent:.1f}%)")
             if progress_callback:
                 progress_callback(f"Exporting video ({num_frames}/{num_frames} frames)", 100)
             
