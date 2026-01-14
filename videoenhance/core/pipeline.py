@@ -23,6 +23,15 @@ from pathlib import Path
 from typing import Dict, Optional, List, Any
 import logging
 from dataclasses import dataclass, field
+import subprocess
+
+# Import numpy for video frame processing if available
+try:
+    import numpy as np
+    HAS_NUMPY = True
+except ImportError:
+    np = None
+    HAS_NUMPY = False
 
 from .detector import VideoDetector
 
@@ -36,6 +45,9 @@ if HAS_VAPOURSYNTH:
     from ..filters.artifacts import ArtifactCleanupFilter
 
 logger = logging.getLogger(__name__)
+
+# Constants for video export
+FFMPEG_BUFFER_SIZE = 10**8  # 100MB buffer for FFmpeg stdin
 
 
 @dataclass
@@ -126,6 +138,8 @@ class Pipeline:
             progress_callback("Detecting video format", 0)
         
         properties = self.detector.detect(str(input_path))
+        # Store source path for export
+        properties['_source_path'] = str(input_path)
         logger.info(f"Video properties: {properties}")
 
         # Step 2: Load video into VapourSynth
@@ -252,7 +266,7 @@ class Pipeline:
     def _export_video(self, clip: Any, output_path: str, 
                      properties: Dict[str, any]) -> None:
         """
-        Export video using FFmpeg.
+        Export video using FFmpeg via subprocess.
 
         Args:
             clip: VapourSynth video node
@@ -262,18 +276,191 @@ class Pipeline:
         if not HAS_VAPOURSYNTH or clip is None:
             raise ImportError("VapourSynth is required for video export")
         
+        if not HAS_NUMPY:
+            raise ImportError("NumPy is required for video export")
+        
         logger.info(f"Exporting to {output_path} using {self.config.output_codec}")
-
-        # Set up output pipe from VapourSynth
-        clip.set_output()
-
-        # Build FFmpeg command
-        codec_args = self._get_codec_args()
-
-        # This is a placeholder - actual implementation would use
-        # VapourSynth's built-in output methods or vspipe
         logger.info(f"Export configuration: codec={self.config.output_codec}, "
                    f"crf={self.config.output_crf}, preset={self.config.output_preset}")
+        
+        # Get clip properties
+        num_frames = clip.num_frames
+        fps_num = clip.fps.numerator
+        fps_den = clip.fps.denominator
+        fps = fps_num / fps_den
+        width = clip.width
+        height = clip.height
+        
+        logger.info(f"Exporting {num_frames} frames at {width}x{height}, {fps:.2f} fps")
+        
+        # Build FFmpeg codec arguments
+        codec_args = self._get_codec_args()
+        
+        # Build FFmpeg command to read raw video from stdin
+        ffmpeg_cmd = [
+            'ffmpeg',
+            '-f', 'rawvideo',
+            '-pix_fmt', 'rgb24',
+            '-s', f'{width}x{height}',
+            '-r', f'{fps_num}/{fps_den}',
+            '-i', 'pipe:0',
+            '-y',  # Overwrite output file
+        ] + codec_args + [
+            '-pix_fmt', 'yuv420p',
+            output_path
+        ]
+        
+        logger.debug(f"FFmpeg command: {' '.join(ffmpeg_cmd)}")
+        
+        try:
+            # Start FFmpeg process
+            ffmpeg_process = subprocess.Popen(
+                ffmpeg_cmd,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                bufsize=FFMPEG_BUFFER_SIZE
+            )
+            
+            # Process and write each frame
+            for frame_num in range(num_frames):
+                if frame_num % 100 == 0 and frame_num > 0:
+                    percent = (frame_num / num_frames) * 100
+                    logger.info(f"Encoding progress: {frame_num}/{num_frames} frames ({percent:.1f}%)")
+                
+                # Get frame from VapourSynth
+                frame = clip.get_frame(frame_num)
+                
+                # Convert frame to RGB24 numpy array
+                # Check the frame format and convert accordingly
+                if frame.format.color_family == vs.RGB:
+                    # RGB format - extract planes
+                    planes = []
+                    for plane_idx in range(frame.format.num_planes):
+                        plane_array = np.array(frame.get_read_array(plane_idx), copy=False)
+                        planes.append(plane_array)
+                    
+                    # Stack RGB planes into single array (H, W, 3)
+                    if len(planes) == 3:
+                        rgb_array = np.stack(planes, axis=-1)
+                    else:
+                        # Grayscale - replicate to RGB
+                        rgb_array = np.repeat(planes[0][:, :, np.newaxis], 3, axis=2)
+                    
+                    # Ensure uint8 format
+                    if rgb_array.dtype != np.uint8:
+                        # Convert from other bit depths
+                        if frame.format.sample_type == vs.FLOAT:
+                            rgb_array = (np.clip(rgb_array, 0.0, 1.0) * 255).astype(np.uint8)
+                        else:
+                            # Integer format - scale to 8-bit
+                            bit_depth = frame.format.bits_per_sample
+                            if bit_depth != 8:
+                                rgb_array = (rgb_array >> (bit_depth - 8)).astype(np.uint8)
+                
+                else:
+                    # YUV format - need to convert to RGB
+                    # Extract Y, U, V planes
+                    y_plane = np.array(frame.get_read_array(0), copy=False)
+                    u_plane = np.array(frame.get_read_array(1), copy=False) if frame.format.num_planes > 1 else None
+                    v_plane = np.array(frame.get_read_array(2), copy=False) if frame.format.num_planes > 2 else None
+                    
+                    # Convert to 8-bit if necessary
+                    bit_depth = frame.format.bits_per_sample
+                    if frame.format.sample_type == vs.FLOAT:
+                        y = (np.clip(y_plane, 0.0, 1.0) * 255).astype(np.uint8)
+                        if u_plane is not None:
+                            u = (np.clip(u_plane, 0.0, 1.0) * 255).astype(np.uint8)
+                            v = (np.clip(v_plane, 0.0, 1.0) * 255).astype(np.uint8)
+                        else:
+                            u = np.full_like(y, 128, dtype=np.uint8)
+                            v = np.full_like(y, 128, dtype=np.uint8)
+                    else:
+                        if bit_depth != 8:
+                            shift = bit_depth - 8
+                            y = (y_plane >> shift).astype(np.uint8)
+                            if u_plane is not None:
+                                u = (u_plane >> shift).astype(np.uint8)
+                                v = (v_plane >> shift).astype(np.uint8)
+                            else:
+                                u = np.full_like(y, 128, dtype=np.uint8)
+                                v = np.full_like(y, 128, dtype=np.uint8)
+                        else:
+                            y = y_plane.astype(np.uint8)
+                            if u_plane is not None:
+                                u = u_plane.astype(np.uint8)
+                                v = v_plane.astype(np.uint8)
+                            else:
+                                u = np.full_like(y, 128, dtype=np.uint8)
+                                v = np.full_like(y, 128, dtype=np.uint8)
+                    
+                    # Upsample U and V if subsampled (e.g., 4:2:0 or 4:2:2)
+                    if u.shape != y.shape:
+                        # Calculate upsampling ratios with validation
+                        if u.shape[0] > 0 and u.shape[1] > 0:
+                            height_ratio = max(1, y.shape[0] // u.shape[0])
+                            width_ratio = max(1, y.shape[1] // u.shape[1])
+                            
+                            if height_ratio > 1 or width_ratio > 1:
+                                # Repeat pixels to match Y plane dimensions
+                                u = np.repeat(np.repeat(u, height_ratio, axis=0), 
+                                             width_ratio, axis=1)
+                                v = np.repeat(np.repeat(v, height_ratio, axis=0),
+                                             width_ratio, axis=1)
+                                # Trim to exact size if needed
+                                u = u[:y.shape[0], :y.shape[1]]
+                                v = v[:y.shape[0], :y.shape[1]]
+                        else:
+                            # Invalid chroma plane size - create neutral chroma
+                            u = np.full_like(y, 128, dtype=np.uint8)
+                            v = np.full_like(y, 128, dtype=np.uint8)
+                    
+                    # YUV to RGB conversion (ITU-R BT.601)
+                    y_f = y.astype(np.float32)
+                    u_f = u.astype(np.float32) - 128
+                    v_f = v.astype(np.float32) - 128
+                    
+                    r = y_f + 1.402 * v_f
+                    g = y_f - 0.344136 * u_f - 0.714136 * v_f
+                    b = y_f + 1.772 * u_f
+                    
+                    # Clip and convert to uint8
+                    r = np.clip(r, 0, 255).astype(np.uint8)
+                    g = np.clip(g, 0, 255).astype(np.uint8)
+                    b = np.clip(b, 0, 255).astype(np.uint8)
+                    
+                    # Stack into RGB array
+                    rgb_array = np.stack([r, g, b], axis=-1)
+                
+                # Write frame data to FFmpeg stdin
+                try:
+                    ffmpeg_process.stdin.write(rgb_array.tobytes())
+                except BrokenPipeError:
+                    # FFmpeg process died - get error details
+                    logger.error("FFmpeg process died unexpectedly while writing frame")
+                    ffmpeg_process.stdin.close()
+                    stdout, stderr = ffmpeg_process.communicate()
+                    error_msg = stderr.decode('utf-8', errors='ignore')
+                    logger.error(f"FFmpeg stderr: {error_msg}")
+                    raise RuntimeError(f"FFmpeg process terminated unexpectedly: {error_msg}")
+            
+            # Close stdin to signal end of input
+            ffmpeg_process.stdin.close()
+            
+            # Wait for FFmpeg to finish and capture output
+            stdout, stderr = ffmpeg_process.communicate()
+            
+            if ffmpeg_process.returncode != 0:
+                error_msg = stderr.decode('utf-8', errors='ignore')
+                logger.error(f"FFmpeg failed with return code {ffmpeg_process.returncode}")
+                logger.error(f"FFmpeg stderr: {error_msg}")
+                raise RuntimeError(f"Video export failed: {error_msg}")
+            
+            logger.info(f"Successfully exported video to {output_path}")
+            
+        except Exception as e:
+            logger.error(f"Error during video export: {e}")
+            raise
 
     def _get_codec_args(self) -> List[str]:
         """
