@@ -1,0 +1,37 @@
+# Example configuration file for VideoEnhance
+
+# Pipeline settings
+deinterlace:
+  preset: "Fast"  # Fast, Medium, Slow, etc.
+
+denoise:
+  strength: 1.0  # 0.0 to 3.0
+  radius: 2      # 1 to 3 frames
+
+sharpen:
+  strength: 0.3  # 0.0 to 1.0
+  radius: 1      # 1 or 2
+
+deflicker:
+  strength: 0.5  # 0.0 to 1.0
+  radius: 3      # 1 to 5 frames
+
+color:
+  auto_white_balance: true
+  auto_contrast: true
+  gamma: 1.0
+
+artifacts:
+  enabled: true
+  strength: 0.5  # 0.0 to 1.0
+
+# Output settings
+output:
+  codec: "hevc"      # hevc or av1
+  crf: 20            # Lower = better quality, higher file size
+  preset: "medium"   # ultrafast, superfast, veryfast, faster, fast, medium, slow, slower, veryslow
+
+# GPU acceleration
+gpu:
+  enabled: false
+  device: 0

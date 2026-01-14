@@ -1,0 +1,24 @@
+# Core dependencies
+vapoursynth>=60
+ffmpeg-python>=0.2.0
+numpy>=1.24.0
+Pillow>=10.0.0
+
+# Video processing
+av>=10.0.0
+
+# CLI
+click>=8.1.0
+rich>=13.0.0
+tqdm>=4.65.0
+
+# GUI (optional)
+PyQt6>=6.5.0
+
+# Configuration
+pyyaml>=6.0
+toml>=0.10.2
+
+# Utilities
+watchdog>=3.0.0
+psutil>=5.9.0
