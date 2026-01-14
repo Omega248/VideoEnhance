@@ -59,8 +59,8 @@ class TemporalDenoiseFilter:
             )
             return denoised
         except AttributeError:
-            logger.warning("TTempSmooth not available, using TemporalSoften")
-            # Fallback to TemporalSoften
+            logger.warning("TTempSmooth not available, using AverageFrames")
+            # Fallback to AverageFrames
             return self._fallback_denoise(clip)
 
     def _fallback_denoise(self, clip: Any) -> Any:
@@ -78,8 +78,8 @@ class TemporalDenoiseFilter:
         
         # Use built-in AverageFrames for temporal denoising
         # Create weights array centered on current frame
-        # Strength controls the emphasis on current frame vs neighbors
-        # Higher strength = more weight on current frame = less denoising
+        # Strength controls the denoising amount
+        # Higher strength = less weight on current frame = more denoising
         center_weight = max(1, int(4 - self.strength))
         neighbor_weight = 1
         weights = [neighbor_weight] * self.radius + [center_weight] + [neighbor_weight] * self.radius
