@@ -323,11 +323,13 @@ class Pipeline:
         
         try:
             # Start FFmpeg process
+            # Use DEVNULL for stdout/stderr to prevent buffer deadlock
+            # We'll only capture stderr if the process fails
             ffmpeg_process = subprocess.Popen(
                 ffmpeg_cmd,
                 stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
                 bufsize=FFMPEG_BUFFER_SIZE
             )
             
@@ -453,25 +455,27 @@ class Pipeline:
                 try:
                     ffmpeg_process.stdin.write(rgb_array.tobytes())
                 except BrokenPipeError:
-                    # FFmpeg process died - get error details
-                    logger.error("FFmpeg process died unexpectedly while writing frame")
+                    # FFmpeg process died - check return code
+                    logger.error(f"FFmpeg process died unexpectedly while writing frame {frame_num}")
                     ffmpeg_process.stdin.close()
-                    stdout, stderr = ffmpeg_process.communicate()
-                    error_msg = stderr.decode('utf-8', errors='ignore')
-                    logger.error(f"FFmpeg stderr: {error_msg}")
-                    raise RuntimeError(f"FFmpeg process terminated unexpectedly: {error_msg}")
+                    ffmpeg_process.wait()
+                    raise RuntimeError(f"FFmpeg process terminated unexpectedly at frame {frame_num} "
+                                     f"with return code {ffmpeg_process.returncode}")
             
             # Close stdin to signal end of input
             ffmpeg_process.stdin.close()
             
-            # Wait for FFmpeg to finish and capture output
-            stdout, stderr = ffmpeg_process.communicate()
+            # Wait for FFmpeg to finish
+            return_code = ffmpeg_process.wait()
             
-            if ffmpeg_process.returncode != 0:
-                error_msg = stderr.decode('utf-8', errors='ignore')
-                logger.error(f"FFmpeg failed with return code {ffmpeg_process.returncode}")
-                logger.error(f"FFmpeg stderr: {error_msg}")
-                raise RuntimeError(f"Video export failed: {error_msg}")
+            if return_code != 0:
+                logger.error(f"FFmpeg failed with return code {return_code}")
+                raise RuntimeError(f"Video export failed with FFmpeg return code {return_code}")
+            
+            # Log final progress update
+            logger.info(f"Encoding progress: {num_frames}/{num_frames} frames (100.0%)")
+            if progress_callback:
+                progress_callback(f"Exporting video ({num_frames}/{num_frames} frames)", 100)
             
             logger.info(f"Successfully exported video to {output_path}")
             
