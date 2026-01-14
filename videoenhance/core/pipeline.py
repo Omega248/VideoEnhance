@@ -328,7 +328,7 @@ class Pipeline:
             
             # Process and write each frame
             for frame_num in range(num_frames):
-                # Update progress every 100 frames or on first frame
+                # Update progress every 100 frames (includes frame 0)
                 should_update_progress = (frame_num % 100 == 0)
                 
                 if should_update_progress:
@@ -338,8 +338,6 @@ class Pipeline:
                     if progress_callback:
                         # Map frame progress to export progress range (80-100%)
                         overall_percent = EXPORT_PROGRESS_START + (frame_num / num_frames) * EXPORT_PROGRESS_RANGE
-                        # Cap at 100% to handle floating-point precision issues
-                        overall_percent = min(overall_percent, 100.0)
                         progress_callback(f"Exporting video ({frame_num}/{num_frames} frames)", overall_percent)
                 
                 # Get frame from VapourSynth
