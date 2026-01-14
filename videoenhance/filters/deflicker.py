@@ -79,21 +79,22 @@ class DeflickerFilter:
             scenechange=True
         )
         
-        # Calculate luma adjustment factor and apply to luma plane only
-        # Formula: adjusted = original + strength * (averaged - original)
-        # This blends the original luma with the temporally averaged luma
-        adjusted_luma = core.std.Expr(
-            [luma, averaged_luma],
-            expr=[f"x {1.0 - self.strength} * y {self.strength} * +"]
-        )
+        # The averaged luma is already the stabilized version
+        # No additional processing needed - just return it with original chroma
+        adjusted_luma = averaged_luma
         
-        # Extract chroma planes from original clip (if they exist)
+        # Merge adjusted luma with original chroma planes
         if clip.format.num_planes == 1:
             # Grayscale clip, just return adjusted luma
             return adjusted_luma
         else:
-            # Color clip, merge adjusted luma with original chroma
-            return core.std.ShufflePlanes([adjusted_luma, clip, clip], planes=[0, 1, 2], colorfamily=clip.format.color_family)
+            # Color clip, combine adjusted luma (plane 0) with original chroma (planes 1 and 2)
+            # ShufflePlanes takes plane 0 from adjusted_luma, planes 1 and 2 from original clip
+            return core.std.ShufflePlanes(
+                [adjusted_luma, clip, clip], 
+                planes=[0, 1, 2], 
+                colorfamily=clip.format.color_family
+            )
 
 
 def deflicker(clip: Any, strength: float = 0.5, radius: int = 3) -> Any:
