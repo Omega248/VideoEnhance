@@ -79,19 +79,15 @@ class DeflickerFilter:
             scenechange=True
         )
         
-        # The averaged luma is already the stabilized version
-        # No additional processing needed - just return it with original chroma
-        adjusted_luma = averaged_luma
-        
-        # Merge adjusted luma with original chroma planes
+        # Merge temporally-averaged luma with original chroma planes
         if clip.format.num_planes == 1:
-            # Grayscale clip, just return adjusted luma
-            return adjusted_luma
+            # Grayscale clip, just return averaged luma
+            return averaged_luma
         else:
-            # Color clip, combine adjusted luma (plane 0) with original chroma (planes 1 and 2)
-            # ShufflePlanes takes plane 0 from adjusted_luma, planes 1 and 2 from original clip
+            # Color clip, combine averaged luma (plane 0) with original chroma (planes 1 and 2)
+            # ShufflePlanes takes plane 0 from averaged_luma, planes 1 and 2 from original clip
             return core.std.ShufflePlanes(
-                [adjusted_luma, clip, clip], 
+                [averaged_luma, clip, clip], 
                 planes=[0, 1, 2], 
                 colorfamily=clip.format.color_family
             )
