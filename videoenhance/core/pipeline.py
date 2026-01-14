@@ -337,7 +337,7 @@ class Pipeline:
                     # RGB format - extract planes
                     planes = []
                     for plane_idx in range(frame.format.num_planes):
-                        plane_array = np.array(frame.get_read_array(plane_idx), copy=False)
+                        plane_array = np.asarray(frame[plane_idx])
                         planes.append(plane_array)
                     
                     # Stack RGB planes into single array (H, W, 3)
@@ -361,9 +361,9 @@ class Pipeline:
                 else:
                     # YUV format - need to convert to RGB
                     # Extract Y, U, V planes
-                    y_plane = np.array(frame.get_read_array(0), copy=False)
-                    u_plane = np.array(frame.get_read_array(1), copy=False) if frame.format.num_planes > 1 else None
-                    v_plane = np.array(frame.get_read_array(2), copy=False) if frame.format.num_planes > 2 else None
+                    y_plane = np.asarray(frame[0])
+                    u_plane = np.asarray(frame[1]) if frame.format.num_planes > 1 else None
+                    v_plane = np.asarray(frame[2]) if frame.format.num_planes > 2 else None
                     
                     # Convert to 8-bit if necessary
                     bit_depth = frame.format.bits_per_sample
