@@ -59,8 +59,8 @@ class TemporalDenoiseFilter:
             )
             return denoised
         except AttributeError:
-            logger.warning("TTempSmooth not available, using TemporalSoften")
-            # Fallback to TemporalSoften
+            logger.warning("TTempSmooth not available, using AverageFrames")
+            # Fallback to AverageFrames
             return self._fallback_denoise(clip)
 
     def _fallback_denoise(self, clip: Any) -> Any:
@@ -76,14 +76,22 @@ class TemporalDenoiseFilter:
         if not HAS_VAPOURSYNTH or core is None:
             raise ImportError("VapourSynth is required for denoising")
         
-        # Use built-in TemporalSoften
-        threshold = int(self.strength * 4)
-        denoised = core.std.TemporalSoften(
+        # Use built-in AverageFrames for temporal denoising
+        # Create weights array centered on current frame
+        # Strength controls the denoising amount (0.0-3.0):
+        #   - strength=0.0: center_weight=4, weights=[1,1,4,1,1] → 50% center (minimal denoising)
+        #   - strength=1.0: center_weight=3, weights=[1,1,3,1,1] → 43% center (moderate denoising)
+        #   - strength=3.0: center_weight=1, weights=[1,1,1,1,1] → 20% center (strong denoising)
+        # Higher strength = less weight on current frame = more temporal smoothing
+        center_weight = max(1, int(4 - self.strength))
+        neighbor_weight = 1
+        weights = [neighbor_weight] * self.radius + [center_weight] + [neighbor_weight] * self.radius
+        
+        denoised = core.std.AverageFrames(
             clip,
-            radius=self.radius,
-            luma_threshold=threshold,
-            chroma_threshold=threshold,
-            scenechange=32
+            weights=weights,
+            scale=sum(weights),
+            scenechange=True
         )
         return denoised
 
