@@ -25,6 +25,14 @@ import logging
 from dataclasses import dataclass, field
 import subprocess
 
+# Import numpy for video frame processing if available
+try:
+    import numpy as np
+    HAS_NUMPY = True
+except ImportError:
+    np = None
+    HAS_NUMPY = False
+
 from .detector import VideoDetector
 
 # Import filters only if VapourSynth is available
@@ -37,6 +45,9 @@ if HAS_VAPOURSYNTH:
     from ..filters.artifacts import ArtifactCleanupFilter
 
 logger = logging.getLogger(__name__)
+
+# Constants for video export
+FFMPEG_BUFFER_SIZE = 10**8  # 100MB buffer for FFmpeg stdin
 
 
 @dataclass
@@ -265,6 +276,9 @@ class Pipeline:
         if not HAS_VAPOURSYNTH or clip is None:
             raise ImportError("VapourSynth is required for video export")
         
+        if not HAS_NUMPY:
+            raise ImportError("NumPy is required for video export")
+        
         logger.info(f"Exporting to {output_path} using {self.config.output_codec}")
         logger.info(f"Export configuration: codec={self.config.output_codec}, "
                    f"crf={self.config.output_crf}, preset={self.config.output_preset}")
@@ -305,10 +319,8 @@ class Pipeline:
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                bufsize=10**8  # Large buffer for better performance
+                bufsize=FFMPEG_BUFFER_SIZE
             )
-            
-            import numpy as np
             
             # Process and write each frame
             for frame_num in range(num_frames):
@@ -384,19 +396,24 @@ class Pipeline:
                     
                     # Upsample U and V if subsampled (e.g., 4:2:0 or 4:2:2)
                     if u.shape != y.shape:
-                        # Simple nearest-neighbor upsampling using numpy repeat
-                        height_ratio = y.shape[0] // u.shape[0]
-                        width_ratio = y.shape[1] // u.shape[1]
-                        
-                        if height_ratio > 1 or width_ratio > 1:
-                            # Repeat pixels to match Y plane dimensions
-                            u = np.repeat(np.repeat(u, height_ratio, axis=0), 
-                                         width_ratio, axis=1)
-                            v = np.repeat(np.repeat(v, height_ratio, axis=0),
-                                         width_ratio, axis=1)
-                            # Trim to exact size if needed
-                            u = u[:y.shape[0], :y.shape[1]]
-                            v = v[:y.shape[0], :y.shape[1]]
+                        # Calculate upsampling ratios with validation
+                        if u.shape[0] > 0 and u.shape[1] > 0:
+                            height_ratio = max(1, y.shape[0] // u.shape[0])
+                            width_ratio = max(1, y.shape[1] // u.shape[1])
+                            
+                            if height_ratio > 1 or width_ratio > 1:
+                                # Repeat pixels to match Y plane dimensions
+                                u = np.repeat(np.repeat(u, height_ratio, axis=0), 
+                                             width_ratio, axis=1)
+                                v = np.repeat(np.repeat(v, height_ratio, axis=0),
+                                             width_ratio, axis=1)
+                                # Trim to exact size if needed
+                                u = u[:y.shape[0], :y.shape[1]]
+                                v = v[:y.shape[0], :y.shape[1]]
+                        else:
+                            # Invalid chroma plane size - create neutral chroma
+                            u = np.full_like(y, 128, dtype=np.uint8)
+                            v = np.full_like(y, 128, dtype=np.uint8)
                     
                     # YUV to RGB conversion (ITU-R BT.601)
                     y_f = y.astype(np.float32)
@@ -419,8 +436,13 @@ class Pipeline:
                 try:
                     ffmpeg_process.stdin.write(rgb_array.tobytes())
                 except BrokenPipeError:
-                    logger.error("FFmpeg process died unexpectedly")
-                    break
+                    # FFmpeg process died - get error details
+                    logger.error("FFmpeg process died unexpectedly while writing frame")
+                    ffmpeg_process.stdin.close()
+                    stdout, stderr = ffmpeg_process.communicate()
+                    error_msg = stderr.decode('utf-8', errors='ignore')
+                    logger.error(f"FFmpeg stderr: {error_msg}")
+                    raise RuntimeError(f"FFmpeg process terminated unexpectedly: {error_msg}")
             
             # Close stdin to signal end of input
             ffmpeg_process.stdin.close()
