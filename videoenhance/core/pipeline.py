@@ -50,6 +50,7 @@ logger = logging.getLogger(__name__)
 FFMPEG_BUFFER_SIZE = 10**8  # 100MB buffer for FFmpeg stdin
 EXPORT_PROGRESS_START = 80  # Progress percentage when export starts
 EXPORT_PROGRESS_RANGE = 20  # Progress range for export (80-100%)
+PROGRESS_UPDATE_INTERVAL = 100  # Number of frames between progress updates
 
 
 @dataclass
@@ -275,7 +276,7 @@ class Pipeline:
             clip: VapourSynth video node
             output_path: Path to output file
             properties: Video properties
-            progress_callback: Optional callback function that takes (message: str, percent: float) parameters for progress updates
+            progress_callback: Optional callback for progress updates (takes message: str, percent: float)
         """
         if not HAS_VAPOURSYNTH or clip is None:
             raise ImportError("VapourSynth is required for video export")
@@ -294,6 +295,10 @@ class Pipeline:
         fps = fps_num / fps_den
         width = clip.width
         height = clip.height
+        
+        # Validate that we have frames to export
+        if num_frames == 0:
+            raise ValueError("Cannot export video with 0 frames")
         
         logger.info(f"Exporting {num_frames} frames at {width}x{height}, {fps:.2f} fps")
         
@@ -328,8 +333,8 @@ class Pipeline:
             
             # Process and write each frame
             for frame_num in range(num_frames):
-                # Update progress every 100 frames (includes frame 0)
-                should_update_progress = (frame_num % 100 == 0)
+                # Update progress every PROGRESS_UPDATE_INTERVAL frames (includes frame 0)
+                should_update_progress = (frame_num % PROGRESS_UPDATE_INTERVAL == 0)
                 
                 if should_update_progress:
                     percent = (frame_num / num_frames) * 100
